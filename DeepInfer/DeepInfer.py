@@ -1,4 +1,4 @@
-import Queue
+import queue
 import json
 import platform
 import os
@@ -337,7 +337,8 @@ class DeepInferWidget:
     def populateLocalModels(self):
         digests = self.getAllDigests()
         jsonFiles = glob(JSON_LOCAL_DIR + "/*.json")
-        jsonFiles.sort(cmp=lambda x, y: cmp(os.path.basename(x), os.path.basename(y)))
+        #jsonFiles.sort(cmp=lambda x, y: cmp(os.path.basename(x), os.path.basename(y)))
+        jsonFiles.sort()
         self.jsonModels = []
         for fname in jsonFiles:
             with open(fname, "r") as fp:
@@ -406,22 +407,22 @@ class DeepInferWidget:
             self.downloadButton.visible = True
             self.connectButton.visible = False
             self.connectButton.enabled = False
-            import urllib2
+            import urllib.request, urllib.error, urllib.parse
             url = 'https://api.github.com/repos/DeepInfer/Model-Registry/contents/'
-            response = urllib2.urlopen(url)
+            response = urllib.request.urlopen(url)
             data = json.load(response)
             for item in data:
                 if 'json' in item['name']:
                     # print(item['name'])
                     url = item['url']
-                    response = urllib2.urlopen(url)
+                    response = urllib.request.urlopen(url)
                     data = json.load(response)
                     dl_url = data['download_url']
                     print("downloading: {}...".format(dl_url))
-                    response = urllib2.urlopen(dl_url)
+                    response = urllib.request.urlopen(dl_url)
                     content = response.read()
                     outputPath = os.path.join(JSON_CLOUD_DIR, dl_url.split('/')[-1])
-                    with open(outputPath, 'w') as f:
+                    with open(outputPath, 'wb') as f:
                         f.write(content)
             self.populateModelRegistryTable()
         except Exception as e:
@@ -437,8 +438,8 @@ class DeepInferWidget:
         cmd.append(self.dockerPath.currentPath)
         cmd.append('--version')
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        message = p.stdout.readline()
-        if message.startswith('Docker version'):
+        message = (p.stdout.readline())
+        if message.startswith(b'Docker version'):
             qt.QMessageBox.information(None, 'Docker Status', 'Docker is configured correctly'
                                                               ' ({}).'.format(message))
         else:
@@ -629,7 +630,7 @@ class DeepInferLogic:
     """
 
     def __init__(self):
-        self.main_queue = Queue.Queue()
+        self.main_queue = queue.Queue()
         self.main_queue_running = False
         self.thread = threading.Thread()
         self.abort = False
@@ -698,7 +699,7 @@ class DeepInferLogic:
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         slicer.app.processEvents()
         line = p.stdout.readline()
-        if line[:9] == 'CONTAINER':
+        if line[:9] == b'CONTAINER':
             return True
         return False
 
@@ -706,7 +707,7 @@ class DeepInferLogic:
         try:
             assert self.checkDockerDaemon(), "Docker Daemon is not running"
         except Exception as e:
-            print(e.message)
+            print(e)
             self.abort = True
 
         modules = slicer.modules
@@ -857,7 +858,7 @@ class DeepInferLogic:
                 if iodict[item]["type"] == "point_vec":
                     fileName = str(os.path.join(TMP_PATH, item + '.fcsv'))
                     output_fiduciallist_files[item] = fileName
-        for output_volume in output_volume_files.keys():
+        for output_volume in list(output_volume_files.keys()):
             result = sitk.ReadImage(output_volume_files[output_volume])
             output_node = outputs[output_volume]
             output_node_name = output_node.GetName()
